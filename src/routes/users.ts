@@ -1,82 +1,94 @@
-import { Router } from 'express'
-import { createUserId, todos, users } from '../store.js'
+import { Router } from "express";
+import mongoose from "mongoose";
+import { connectDb } from "../db.js";
+import { User } from "../models/user.js";
 
-export const usersRouter = Router()
+export const usersRouter = Router();
 
-usersRouter.get('/', (_req, res) => {
-  res.json(users)
-})
+usersRouter.use(async (_req, _res, next) => {
+  await connectDb();
+  next();
+});
 
-usersRouter.get('/:id', (req, res) => {
-  const id = Number(req.params.id)
-  const user = users.find((item) => item.id === id)
+usersRouter.get("/", async (_req, res) => {
+  const users = await User.find().lean();
+  res.json(users);
+});
 
-  if (!user) {
-    res.status(404).json({ error: 'User not found' })
-    return
+usersRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    res.status(400).json({ error: "Invalid user id" });
+    return;
   }
 
-  res.json(user)
-})
-
-usersRouter.get('/:id/todos', (req, res) => {
-  const id = Number(req.params.id)
-  const user = users.find((item) => item.id === id)
+  const user = await User.findById(id).lean();
 
   if (!user) {
-    res.status(404).json({ error: 'User not found' })
-    return
+    res.status(404).json({ error: "User not found" });
+    return;
   }
 
-  res.json(todos.filter((todo) => todo.userId === id))
-})
+  res.json(user);
+});
 
-usersRouter.post('/', (req, res) => {
-  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : ''
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : ''
+usersRouter.post("/", async (req, res) => {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const email =
+    typeof req.body?.email === "string" ? req.body.email.trim() : "";
 
   if (!name || !email) {
-    res.status(400).json({ error: 'name and email are required' })
-    return
+    res.status(400).json({ error: "name and email are required" });
+    return;
   }
 
-  const user = { id: createUserId(), name, email }
-  users.push(user)
-  res.status(201).json(user)
-})
+  const user = await User.create({ name, email });
+  res.status(201).json(user);
+});
 
-usersRouter.patch('/:id', (req, res) => {
-  const id = Number(req.params.id)
-  const user = users.find((item) => item.id === id)
+usersRouter.patch("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    res.status(400).json({ error: "Invalid user id" });
+    return;
+  }
+
+  const updates: { name?: string; email?: string } = {};
+
+  if (typeof req.body?.name === "string") {
+    updates.name = req.body.name.trim();
+  }
+
+  if (typeof req.body?.email === "string") {
+    updates.email = req.body.email.trim();
+  }
+
+  const user = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
 
   if (!user) {
-    res.status(404).json({ error: 'User not found' })
-    return
+    res.status(404).json({ error: "User not found" });
+    return;
   }
 
-  if (typeof req.body?.name === 'string') {
-    user.name = req.body.name.trim()
+  res.json(user);
+});
+
+usersRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    res.status(400).json({ error: "Invalid user id" });
+    return;
   }
 
-  if (typeof req.body?.email === 'string') {
-    user.email = req.body.email.trim()
+  const user = await User.findByIdAndDelete(id).lean();
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
   }
 
-  res.json(user)
-})
-
-usersRouter.delete('/:id', (req, res) => {
-  const id = Number(req.params.id)
-  const index = users.findIndex((item) => item.id === id)
-
-  if (index === -1) {
-    res.status(404).json({ error: 'User not found' })
-    return
-  }
-
-  const [user] = users.splice(index, 1)
-  const remainingTodos = todos.filter((todo) => todo.userId !== id)
-  todos.splice(0, todos.length, ...remainingTodos)
-
-  res.json(user)
-})
+  res.json(user);
+});

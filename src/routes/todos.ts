@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createTodoId, todos, users } from '../store.js'
+import { createTodoId, todos } from '../store.js'
 
 export const todosRouter = Router()
 
@@ -49,13 +49,6 @@ todosRouter.post('/', (req, res) => {
     return
   }
 
-  const user = users.find((item) => item.id === userId)
-
-  if (!user) {
-    res.status(400).json({ error: 'User not found' })
-    return
-  }
-
   const todo = { id: createTodoId(), userId, title, completed }
   todos.push(todo)
   res.status(201).json(todo)
@@ -80,10 +73,9 @@ todosRouter.patch('/:id', (req, res) => {
 
   if (req.body?.userId !== undefined) {
     const userId = Number(req.body.userId)
-    const user = users.find((item) => item.id === userId)
 
-    if (!user) {
-      res.status(400).json({ error: 'User not found' })
+    if (!Number.isInteger(userId)) {
+      res.status(400).json({ error: 'userId must be a number' })
       return
     }
 
